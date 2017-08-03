@@ -145,8 +145,8 @@ public static class MeshMakerTool
         {
             if ((triangles[i].Vertex1 == vertex1 || triangles[i].Vertex1 == vertex2) && (triangles[i].Vertex2 == vertex1 || triangles[i].Vertex2 == vertex2))
             {
-                MeshMakerTriangle mmt1 = new MeshMakerTriangle(0, triangles[i].Vertex1, newVertex, triangles[i].Vertex3);
-                MeshMakerTriangle mmt2 = new MeshMakerTriangle(0, newVertex, triangles[i].Vertex2, triangles[i].Vertex3);
+                MeshMakerTriangle mmt1 = new MeshMakerTriangle(0, ref triangles[i].Vertex1, ref newVertex, ref triangles[i].Vertex3);
+                MeshMakerTriangle mmt2 = new MeshMakerTriangle(0, ref newVertex, ref triangles[i].Vertex2, ref triangles[i].Vertex3);
                 triangles.RemoveAt(i);
                 newTriangles.Add(mmt1);
                 newTriangles.Add(mmt2);
@@ -154,8 +154,8 @@ public static class MeshMakerTool
             }
             else if ((triangles[i].Vertex2 == vertex1 || triangles[i].Vertex2 == vertex2) && (triangles[i].Vertex3 == vertex1 || triangles[i].Vertex3 == vertex2))
             {
-                MeshMakerTriangle mmt1 = new MeshMakerTriangle(0, triangles[i].Vertex1, triangles[i].Vertex2, newVertex);
-                MeshMakerTriangle mmt2 = new MeshMakerTriangle(0, triangles[i].Vertex1, newVertex, triangles[i].Vertex3);
+                MeshMakerTriangle mmt1 = new MeshMakerTriangle(0, ref triangles[i].Vertex1, ref triangles[i].Vertex2, ref newVertex);
+                MeshMakerTriangle mmt2 = new MeshMakerTriangle(0, ref triangles[i].Vertex1, ref newVertex, ref triangles[i].Vertex3);
                 triangles.RemoveAt(i);
                 newTriangles.Add(mmt1);
                 newTriangles.Add(mmt2);
@@ -163,8 +163,8 @@ public static class MeshMakerTool
             }
             else if ((triangles[i].Vertex1 == vertex1 || triangles[i].Vertex1 == vertex2) && (triangles[i].Vertex3 == vertex1 || triangles[i].Vertex3 == vertex2))
             {
-                MeshMakerTriangle mmt1 = new MeshMakerTriangle(0, triangles[i].Vertex1, triangles[i].Vertex2, newVertex);
-                MeshMakerTriangle mmt2 = new MeshMakerTriangle(0, newVertex, triangles[i].Vertex2, triangles[i].Vertex3);
+                MeshMakerTriangle mmt1 = new MeshMakerTriangle(0, ref triangles[i].Vertex1, ref triangles[i].Vertex2, ref newVertex);
+                MeshMakerTriangle mmt2 = new MeshMakerTriangle(0, ref newVertex, ref triangles[i].Vertex2, ref triangles[i].Vertex3);
                 triangles.RemoveAt(i);
                 newTriangles.Add(mmt1);
                 newTriangles.Add(mmt2);

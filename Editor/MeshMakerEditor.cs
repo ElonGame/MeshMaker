@@ -37,6 +37,8 @@ public class MeshMakerEditor : Editor
     private SecondaryHandleMode _secondaryHandleMode;
     //场景摄像机
     private Camera _sceneCamera;
+    //UV浏览界面
+    private MeshMakerUVExhibition _uvPanel;
 
     private void OnEnable()
 	{
@@ -49,12 +51,13 @@ public class MeshMakerEditor : Editor
             DestroyImmediate(_currentEditTriangle);
         if (_currentEditEdge)
             DestroyImmediate(_currentEditEdge);
+        Undo.undoRedoPerformed -= OnRecord;
     }
-
+    
     private void Init()
     {
         _meshMaker = target as MeshMaker;
-        if (_meshMaker == null)
+        if (_meshMaker == null || EditorApplication.isPlaying)
         {
             return;
         }
@@ -113,35 +116,34 @@ public class MeshMakerEditor : Editor
         _secondaryHandle = false;
         _secondaryHandleMode = SecondaryHandleMode.None;
         _sceneCamera = SceneView.lastActiveSceneView.camera;
+        Undo.undoRedoPerformed += OnRecord;
     }
-
+    
     public override void OnInspectorGUI()
     {
+        GUI.enabled = _meshMaker.IsCanEdit;
+
         #region 编辑模式选择
         EditorGUILayout.BeginHorizontal();
-        if (_currentEditMode == EditMode.Vertex) GUI.color = Color.green;
-        else GUI.color = Color.white;
+        GUI.color = _currentEditMode == EditMode.Vertex ? Color.green : Color.white;
         if (GUILayout.Button(_vertexButtonContent, GUILayout.Height(40), GUILayout.Width(45)))
         {
             _currentEditMode = EditMode.Vertex;
             StopSecondaryHandle();
         }
-        if (_currentEditMode == EditMode.Edge) GUI.color = Color.green;
-        else GUI.color = Color.white;
+        GUI.color = _currentEditMode == EditMode.Edge ? Color.green : Color.white;
         if (GUILayout.Button(_edgeButtonContent, GUILayout.Height(40), GUILayout.Width(45)))
         {
             _currentEditMode = EditMode.Edge;
             StopSecondaryHandle();
         }
-        if (_currentEditMode == EditMode.Face) GUI.color = Color.green;
-        else GUI.color = Color.white;
+        GUI.color = _currentEditMode == EditMode.Face ? Color.green : Color.white;
         if (GUILayout.Button(_faceButtonContent, GUILayout.Height(40), GUILayout.Width(45)))
         {
             _currentEditMode = EditMode.Face;
             StopSecondaryHandle();
         }
-        if (_currentEditMode == EditMode.None) GUI.color = Color.green;
-        else GUI.color = Color.white;
+        GUI.color = _currentEditMode == EditMode.None ? Color.green : Color.white;
         if (GUILayout.Button(_noneButtonContent, GUILayout.Height(40), GUILayout.Width(45)))
         {
             _currentEditMode = EditMode.None;
@@ -244,10 +246,32 @@ public class MeshMakerEditor : Editor
     private void OnSceneGUI()
     {
         ChangeHandleTool();
-        CaptureHoverTarget();
-        CaptureCheckedTarget();
-        SecondaryHandle();
-        SceneView.RepaintAll();
+
+        if (_meshMaker.IsCanEdit)
+        {
+            CaptureHoverTarget();
+            CaptureCheckedTarget();
+            SecondaryHandle();
+            SceneView.RepaintAll();
+
+            if (GUI.changed)
+            {
+                _meshMaker.RefreshMesh();
+
+                if (Event.current.button == 0 && Event.current.isMouse && Event.current.type == EventType.MouseDown)
+                    Undo.RecordObject(_meshMaker, "Edit Mesh");
+            }
+        }
+        else
+        {
+            if (_uvPanel)
+                CaptureCheckedTargetInUV();
+        }      
+    }
+
+    private void OnRecord()
+    {
+        _meshMaker.RefreshMesh();
     }
 
     /// <summary>
@@ -369,7 +393,7 @@ public class MeshMakerEditor : Editor
     /// </summary>
     private void CaptureCheckedTarget()
     {
-        if (!_secondaryHandle && (Event.current.button == 1) && Event.current.isMouse && (Event.current.type == EventType.MouseDown))
+        if (!_secondaryHandle && Event.current.button == 1 && Event.current.isMouse && Event.current.type == EventType.MouseDown)
         {
             RaycastHit hit;
             if (Physics.Raycast(HandleUtility.GUIPointToWorldRay(Event.current.mousePosition), out hit))
@@ -438,6 +462,10 @@ public class MeshMakerEditor : Editor
     {
         if (_currentCheckedTriangle != null)
             _currentCheckedTriangle = null;
+        if (_currentCheckedEdge != null)
+            _currentCheckedEdge = null;
+        if (_currentCheckedVertex != null)
+            _currentCheckedVertex = null;
     }
 
     /// <summary>
@@ -458,7 +486,6 @@ public class MeshMakerEditor : Editor
                     if (oldVec != newVec)
                     {
                         _currentCheckedVertex.Vertex = newVec;
-                        _meshMaker.RefreshMesh();
                     }
                     break;
                 case HandleTool.Rotate:
@@ -576,7 +603,6 @@ public class MeshMakerEditor : Editor
         _currentCheckedTriangle.Vertex1.Vertex = _currentEditTriangleVertex1.transform.position;
         _currentCheckedTriangle.Vertex2.Vertex = _currentEditTriangleVertex2.transform.position;
         _currentCheckedTriangle.Vertex3.Vertex = _currentEditTriangleVertex3.transform.position;
-        _meshMaker.RefreshMesh();
     }
     /// <summary>
     /// 设置当前编辑的边
@@ -596,7 +622,6 @@ public class MeshMakerEditor : Editor
     {
         _currentCheckedEdge.Vertex1.Vertex = _currentEditEdgeVertex1.transform.position;
         _currentCheckedEdge.Vertex2.Vertex = _currentEditEdgeVertex2.transform.position;
-        _meshMaker.RefreshMesh();
     }
 
     /// <summary>
@@ -660,15 +685,14 @@ public class MeshMakerEditor : Editor
                         _meshMaker.Triangles.RemoveByVertex(_currentCheckedVertex);
                         _meshMaker.Triangles.RefreshID();
                         _meshMaker.GenerateMesh();
-                        _meshMaker.RefreshMesh();
                         _currentCheckedVertex = null;
                         StopSecondaryHandle();
                         break;
                     case SecondaryHandleMode.Welding:
                         Vector3 wv = _meshMaker.ScreenToWorldPointInScene(_sceneCamera, Event.current.mousePosition, _currentCheckedVertex.Vertex);
-                        Handles.DrawLine(_currentCheckedVertex.Vertex, wv);
+                        Handles.DrawDottedLine(_currentCheckedVertex.Vertex, wv, 0.2f);
                         Handles.Label(wv, "   请选择焊接目标");
-                        if ((Event.current.button == 1) && Event.current.isMouse && (Event.current.type == EventType.MouseDown))
+                        if (Event.current.button == 1 && Event.current.isMouse && Event.current.type == EventType.MouseDown)
                         {
                             RaycastHit hit;
                             if (Physics.Raycast(HandleUtility.GUIPointToWorldRay(Event.current.mousePosition), out hit))
@@ -685,7 +709,6 @@ public class MeshMakerEditor : Editor
                                         _meshMaker.Triangles.ReplaceVertex(_currentCheckedVertex, mmv);
                                         _meshMaker.Triangles.RefreshID();
                                         _meshMaker.GenerateMesh();
-                                        _meshMaker.RefreshMesh();
                                         _currentCheckedVertex = null;
                                     }
                                 }
@@ -695,9 +718,9 @@ public class MeshMakerEditor : Editor
                         break;
                     case SecondaryHandleMode.Clone:
                         Vector3 cv = _meshMaker.ScreenToWorldPointInScene(_sceneCamera, Event.current.mousePosition, _currentCheckedVertex.Vertex);
-                        Handles.DrawLine(_currentCheckedVertex.Vertex, cv);
+                        Handles.DrawDottedLine(_currentCheckedVertex.Vertex, cv, 0.2f);
                         Handles.Label(cv, "   请选择参照目标");
-                        if ((Event.current.button == 1) && Event.current.isMouse && (Event.current.type == EventType.MouseDown))
+                        if (Event.current.button == 1 && Event.current.isMouse && Event.current.type == EventType.MouseDown)
                         {
                             RaycastHit hit;
                             if (Physics.Raycast(HandleUtility.GUIPointToWorldRay(Event.current.mousePosition), out hit))
@@ -717,7 +740,6 @@ public class MeshMakerEditor : Editor
                                         _meshMaker.Triangles.SegmentationTriangle(mmv, _currentCheckedVertex, newMmv);
                                         _meshMaker.Triangles.RefreshID();
                                         _meshMaker.GenerateMesh();
-                                        _meshMaker.RefreshMesh();
                                         _currentCheckedVertex = null;
                                     }
                                 }
@@ -753,6 +775,7 @@ public class MeshMakerEditor : Editor
             AssetDatabase.CreateAsset(_meshMaker._meshFilter.sharedMesh, path);
             AssetDatabase.SaveAssets();
         }
+        StopSecondaryHandle();
     }
     /// <summary>
     /// 编辑完成
@@ -769,7 +792,57 @@ public class MeshMakerEditor : Editor
     /// 展UV
     /// </summary>
     private void UVExhibition()
-    { }
+    {
+        _uvPanel = EditorWindow.GetWindow<MeshMakerUVExhibition>();
+        _uvPanel.Show();
+        _uvPanel.Init(_meshMaker);
+        _meshMaker.IsCanEdit = false;
+        _currentEditMode = EditMode.None;
+        _currentHandleTool = HandleTool.None;
+        StopSecondaryHandle();
+    }
+
+    /// <summary>
+    /// 截获鼠标当前选中目标在UV模式
+    /// </summary>
+    private void CaptureCheckedTargetInUV()
+    {
+        if (Event.current.button == 0 && Event.current.isMouse && Event.current.type == EventType.MouseDown)
+        {
+            RaycastHit hit;
+            if (Physics.Raycast(HandleUtility.GUIPointToWorldRay(Event.current.mousePosition), out hit))
+            {
+                if (hit.triangleIndex >= 0 && hit.triangleIndex < _meshMaker.Triangles.Count)
+                {
+                    _uvPanel.CurrentCheckedVertex = _meshMaker.Triangles[hit.triangleIndex].GetVertexByClick(hit.point);
+                }
+                else
+                {
+                    _uvPanel.CurrentCheckedVertex = null;
+                }
+            }
+            else
+            {
+                _uvPanel.CurrentCheckedVertex = null;
+            }
+            _uvPanel.Repaint();
+        }
+
+        Selection.activeObject = _meshMaker.gameObject;
+
+        ShowCheckedTargetInUV();
+    }
+    /// <summary>
+    /// 显示鼠标当前选中的目标在UV模式
+    /// </summary>
+    private void ShowCheckedTargetInUV()
+    {
+        if (_uvPanel.CurrentCheckedVertex != null)
+        {
+            Handles.color = _meshMaker.CheckedColor;
+            Handles.DotCap(0, _uvPanel.CurrentCheckedVertex.Vertex, Quaternion.identity, _meshMaker.VertexHandleSize);
+        }
+    }
 }
 
 public enum HandleTool

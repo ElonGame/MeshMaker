@@ -4,96 +4,17 @@ using System;
 [Serializable]
 public class MeshMakerTriangle : MeshMakerBase
 {
-    private int _id;
-    public int ID
-    {
-        get{
-            return _id;
-        }
-        set {
-            _id = value;
-        }
-    }
+    public int ID;
+    public MeshMakerVertex Vertex1;
+    public MeshMakerVertex Vertex2;
+    public MeshMakerVertex Vertex3;
+    public MeshMakerEdge Edge1;
+    public MeshMakerEdge Edge2;
+    public MeshMakerEdge Edge3;
 
-    private MeshMakerVertex _vertex1;
-    public MeshMakerVertex Vertex1
+    public MeshMakerTriangle(int id, ref MeshMakerVertex vertex1, ref MeshMakerVertex vertex2, ref MeshMakerVertex vertex3)
     {
-        get {
-            return _vertex1;
-        }
-        set {
-            _vertex1 = value;
-        }
-    }
-
-    private MeshMakerVertex _vertex2;
-    public MeshMakerVertex Vertex2
-    {
-        get
-        {
-            return _vertex2;
-        }
-        set
-        {
-            _vertex2 = value;
-        }
-    }
-
-    private MeshMakerVertex _vertex3;
-    public MeshMakerVertex Vertex3
-    {
-        get
-        {
-            return _vertex3;
-        }
-        set
-        {
-            _vertex3 = value;
-        }
-    }
-
-    private MeshMakerEdge _edge1;
-    public MeshMakerEdge Edge1
-    {
-        get
-        {
-            return _edge1;
-        }
-        set
-        {
-            _edge1 = value;
-        }
-    }
-
-    private MeshMakerEdge _edge2;
-    public MeshMakerEdge Edge2
-    {
-        get
-        {
-            return _edge2;
-        }
-        set
-        {
-            _edge2 = value;
-        }
-    }
-
-    private MeshMakerEdge _edge3;
-    public MeshMakerEdge Edge3
-    {
-        get
-        {
-            return _edge3;
-        }
-        set
-        {
-            _edge3 = value;
-        }
-    }
-
-    public MeshMakerTriangle(int id, MeshMakerVertex vertex1, MeshMakerVertex vertex2, MeshMakerVertex vertex3)
-    {
-        _id = id;
+        ID = id;
         Vertex1 = vertex1;
         Vertex2 = vertex2;
         Vertex3 = vertex3;
@@ -111,8 +32,8 @@ public class MeshMakerTriangle : MeshMakerBase
 
     public void RefreshEdge()
     {
-        Edge1 = new MeshMakerEdge(Vertex1, Vertex2);
-        Edge2 = new MeshMakerEdge(Vertex2, Vertex3);
-        Edge3 = new MeshMakerEdge(Vertex3, Vertex1);
+        Edge1 = new MeshMakerEdge(ref Vertex1, ref Vertex2);
+        Edge2 = new MeshMakerEdge(ref Vertex2, ref Vertex3);
+        Edge3 = new MeshMakerEdge(ref Vertex3, ref Vertex1);
     }
 }

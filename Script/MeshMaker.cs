@@ -14,14 +14,6 @@ public class MeshMaker : MonoBehaviour
     private int _astrictVertexNum = 10000;
     //物体网格
     private Mesh _mesh;
-    //目标物体
-    private GameObject _target;
-    public GameObject Target
-    {
-        get{
-            return _target;
-        }
-    }
     //克隆体名称
     private string _name = "复制体";
     //所有顶点
@@ -33,6 +25,8 @@ public class MeshMaker : MonoBehaviour
     //所有法线
     private List<Vector3> _allNormals;
 
+    //目标物体
+    public GameObject Target;
     //顶点
     public List<MeshMakerVertex> Vertexs;
     //三角面
@@ -43,6 +37,8 @@ public class MeshMaker : MonoBehaviour
     public Color HoverColor;
     //点编辑模式控制柄的大小
     public float VertexHandleSize;
+    //是否可以编辑
+    public bool IsCanEdit;
 
     public MeshFilter _meshFilter;
     public MeshRenderer _meshRenderer;
@@ -56,8 +52,8 @@ public class MeshMaker : MonoBehaviour
     {
         this.CompileOnlyEditor(delegate ()
         {
-            if (_target)
-                DestroyImmediate(_target);
+            if (Target)
+                DestroyImmediate(Target);
         });
     }
 
@@ -69,11 +65,11 @@ public class MeshMaker : MonoBehaviour
         #region 检测Mesh
         this.CompileNoEditor(delegate ()
         {
-            Destroy(this);
+            DestroyImmediate(this);
             return;
         });
 
-        if (Application.isPlaying)
+        if (EditorApplication.isPlaying)
         {
             DestroyImmediate(this);
             return;
@@ -149,7 +145,7 @@ public class MeshMaker : MonoBehaviour
             MeshMakerVertex mmv1 = Vertexs.GetVertexByIndex(_allTriangles[i]);
             MeshMakerVertex mmv2 = Vertexs.GetVertexByIndex(_allTriangles[i + 1]);
             MeshMakerVertex mmv3 = Vertexs.GetVertexByIndex(_allTriangles[i + 2]);
-            MeshMakerTriangle mmt = new MeshMakerTriangle(Triangles.Count, mmv1, mmv2, mmv3);
+            MeshMakerTriangle mmt = new MeshMakerTriangle(Triangles.Count, ref mmv1, ref mmv2, ref mmv3);
             Triangles.Add(mmt);
         }
         for (int i = 0; i < Vertexs.Count; i++)
@@ -159,22 +155,21 @@ public class MeshMaker : MonoBehaviour
         #endregion
 
         #region 重构Mesh
-        Transform tf = transform.FindChild(transform.name + "(Clone)");
-        if (tf != null) DestroyImmediate(tf.gameObject);
+        if (Target)
+            DestroyImmediate(Target);
 
-        _target = new GameObject(transform.name + "(Clone)");
-        _target.transform.SetParent(transform);
-        _target.transform.localPosition = Vector3.zero;
-        _target.transform.localRotation = Quaternion.Euler(Vector3.zero);
-        _target.transform.localScale = Vector3.one;
-        _target.hideFlags = HideFlags.HideInHierarchy;
-        _meshFilter = _target.AddComponent<MeshFilter>();
-        _meshRenderer = _target.AddComponent<MeshRenderer>();
+        Target = new GameObject(transform.name + "(Clone)");
+        Target.transform.SetParent(transform);
+        Target.transform.localPosition = Vector3.zero;
+        Target.transform.localRotation = Quaternion.Euler(Vector3.zero);
+        Target.transform.localScale = Vector3.one;
+        Target.hideFlags = HideFlags.HideInHierarchy;
+        _meshFilter = Target.AddComponent<MeshFilter>();
+        _meshRenderer = Target.AddComponent<MeshRenderer>();
         _meshRenderer.sharedMaterial = GetComponent<MeshRenderer>().sharedMaterial;
-        _meshCollider = _target.AddComponent<MeshCollider>();
+        _meshCollider = Target.AddComponent<MeshCollider>();
 
         GenerateMesh();
-        RefreshMesh();
 
         GetComponent<MeshRenderer>().enabled = false;
         if (GetComponent<Collider>())
@@ -186,6 +181,7 @@ public class MeshMaker : MonoBehaviour
         CheckedColor = Color.red;
         HoverColor = Color.green;
         VertexHandleSize = 0.005f;
+        IsCanEdit = true;
         #endregion
     }
 
@@ -201,8 +197,7 @@ public class MeshMaker : MonoBehaviour
 
         for (int i = 0; i < Vertexs.Count; i++)
         {
-            Vector3 vertex = _target.transform.worldToLocalMatrix.MultiplyPoint3x4(Vertexs[i].Vertex);
-            _allVertexs.Add(vertex);
+            _allVertexs.Add(Vertexs[i].Vertex);
             _allUVs.Add(Vertexs[i].UV);
             _allNormals.Add(Vertexs[i].Normal);
         }
@@ -212,6 +207,7 @@ public class MeshMaker : MonoBehaviour
             _allTriangles.Add(Triangles[i].Vertex2.ID);
             _allTriangles.Add(Triangles[i].Vertex3.ID);
         }
+        RefreshMesh();
     }
 
     /// <summary>
@@ -219,11 +215,6 @@ public class MeshMaker : MonoBehaviour
     /// </summary>
     public void RefreshMesh()
     {
-        this.CompileOnlyEditor(delegate ()
-        {
-            Undo.RecordObject(this, "Edit Mesh");
-        });
-
         if (!_mesh)
         {
             _mesh = new Mesh();
@@ -232,8 +223,7 @@ public class MeshMaker : MonoBehaviour
 
         for (int i = 0; i < Vertexs.Count; i++)
         {
-            Vector3 vertex = _target.transform.worldToLocalMatrix.MultiplyPoint3x4(Vertexs[i].Vertex);
-            _allVertexs[i] = vertex;
+            _allVertexs[i] = Target.transform.worldToLocalMatrix.MultiplyPoint3x4(Vertexs[i].Vertex);
         }
 
         _mesh.Clear();
@@ -243,6 +233,22 @@ public class MeshMaker : MonoBehaviour
         _mesh.normals = _allNormals.ToArray();
         _meshFilter.sharedMesh = _mesh;
         _meshCollider.sharedMesh = _mesh;
+        _mesh.RecalculateNormals();
+    }
+
+    /// <summary>
+    /// 刷新UV
+    /// </summary>
+    public void RefreshUV()
+    {
+        _allUVs = new List<Vector2>();
+
+        for (int i = 0; i < Vertexs.Count; i++)
+        {
+            _allUVs.Add(Vertexs[i].UV);
+        }
+
+        _mesh.uv = _allUVs.ToArray();
         _mesh.RecalculateNormals();
     }
 }
